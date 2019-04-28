@@ -5,9 +5,42 @@
 """
 import csv
 from collections import UserList
-from datetime import datetime
+from datetime import (
+    datetime,
+    timedelta,
+)
 
 from colr import Colr as C
+
+
+def timedelta_from_str(durstr):
+    """ Convert a string like '01:29' (1 minute and 29 seconds)
+        into a datetime.timedelta`.
+    """
+    mins, secs = (int(s) for s in durstr.split(':'))
+    return timedelta(minutes=mins, seconds=secs)
+
+
+def timedelta_str(delta, short=False):
+    """ Convert a timedelta into a human-readable string. """
+    hours, rem = divmod(delta.seconds, 3600)
+    hours += delta.days * 24
+    mins, secs = divmod(rem, 60)
+
+    plurals = 'second' if secs == 1 else 'seconds'
+    pluralm = 'minute' if mins == 1 else 'minutes'
+    if hours:
+        if short:
+            return f'{hours:>02}h:{mins:>02}m:{secs:>02}s'
+        pluralh = 'hour' if hours == 1 else 'hours'
+        return f'{hours} {pluralh}, {mins} {pluralm}, {secs} {plurals}'
+    if mins:
+        if short:
+            return f'{mins:>02}m:{secs:>02}s'
+        return f'{mins} {pluralm}, {secs} {plurals}'
+    if short:
+        return f'{secs:>02}s'
+    return f'{secs} {plurals}'
 
 
 class History(UserList):
@@ -47,6 +80,7 @@ class History(UserList):
                         datestr.strip(),
                         timestr.strip(),
                     )))
+                    session.recalculate_duration()
                     sessions.append(session)
                     session = None
                     continue
@@ -54,6 +88,7 @@ class History(UserList):
                     session.append(HistoryLine.from_line(line))
         # Pick up any non-exits.
         if session is not None:
+            session.recalculate_duration()
             sessions.append(session)
         return cls(sessions)
 
@@ -78,6 +113,11 @@ class SessionHistory(UserList):
         if isinstance(end_time, str):
             self.end_time = self.parse_datetime(end_time)
 
+        # Cannot calculate duration on an empty list.
+        self.duration_delta = timedelta()
+        self.duration = '0s'
+        self.recalculate_duration()
+
     def __bool__(self):
         return bool(self.data)
 
@@ -94,6 +134,15 @@ class SessionHistory(UserList):
 
     def __hash__(self):
         return hash(self.time_str())
+
+    def calc_duration(self):
+        """ Calculate a timedelta (duration) for all lines in this session.
+        """
+        # sum() does not work for timedeltas.
+        delta = timedelta()
+        for line in self:
+            delta = delta + line.duration_delta
+        return delta
 
     def get_line(self, hsh):
         """ Retrieve a HistoryLine from this SessionHistory by hash.
@@ -117,7 +166,14 @@ class SessionHistory(UserList):
         """ Parse a datetime in the form 'm-d-y h:m:s'. """
         return datetime.strptime(s, '%m-%d-%y %H:%M:%S')
 
-    def time_fmt(self, dt, time_args=None, date_args=None):
+    def recalculate_duration(self):
+        """ Set `self.duration_delta` and `self.duration` based on current
+            HistoryLines.
+        """
+        self.duration_delta = self.calc_duration()
+        self.duration = timedelta_str(self.duration_delta, short=True)
+
+    def time_fmt(self, dt=None, time_args=None, date_args=None):
         """ Return a color formatted version of a datetime (self.start_time
             by default).
         """
@@ -280,6 +336,10 @@ class HistoryLine(object):
         self.atc1_t9 = atc1_t9
         self.atc1_t10 = atc1_t10
 
+        # Non-csv-file attributes:
+        self.duration_delta = self.calc_duration()
+        self.duration = timedelta_str(self.duration_delta)
+
     def __colr__(self):
         return C(' ').join(
             self.filename_fmt(),
@@ -292,6 +352,16 @@ class HistoryLine(object):
             for s in self.header
         ))
         return f'{type(self).__name__}(\n{attrs}\n)'
+
+    def calc_duration(self):
+        """ Return a timedelta representing the total run time for this
+            command/file.
+        """
+        return (
+            timedelta_from_str(self.rapid) +
+            timedelta_from_str(self.feed) +
+            timedelta_from_str(self.laser)
+        )
 
     def command_type(self):
         """ Return the type of command as a string. """

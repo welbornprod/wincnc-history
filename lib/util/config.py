@@ -50,7 +50,7 @@ debug_exc = debugprinter.debug_exc
 colr_auto_disable()
 
 NAME = 'WinCNC-History'
-VERSION = '0.0.1'
+VERSION = '0.0.2'
 VERSIONSTR = '{} v. {}'.format(NAME, VERSION)
 SCRIPT = os.path.split(os.path.abspath(sys.argv[0]))[1]
 SCRIPTDIR = os.path.abspath(sys.path[0])
