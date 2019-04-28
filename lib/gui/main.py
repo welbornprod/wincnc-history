@@ -9,6 +9,7 @@ from .common import (
     WinTkBase,
 )
 from ..util.config import (
+    ICONFILE,
     NAME,
     VERSION,
     WINCNC_FILE,
@@ -50,9 +51,15 @@ class WinMain(WinTkBase):
         self.filepath = WINCNC_FILE
         # History instance set in `self.refresh()`.
         self.history = History()
-
+        # Style for theme.
         self.style = ttk.Style()
-
+        # Set icon for main window and all children.
+        try:
+            self.main_icon = tk.PhotoImage(master=self, file=ICONFILE)
+            self.iconphoto(True, self.main_icon)
+        except Exception as ex:
+            debug_err('Failed to set icon: {}\n{}'.format(ICONFILE, ex))
+            self.main_icon = None
         # knownstyles = ('clam', 'alt', 'default', 'classic')
         self.known_themes = sorted(self.style.theme_names())
         usetheme = (
@@ -302,12 +309,14 @@ class WinMain(WinTkBase):
             )
             for hl in session:
                 itemduration = timedelta_str(hl.duration_delta, short=True)
+                statustext = hl.status.split()[0]
+                timetext = hl.time_str(time_only=True)
 
                 self.tree_session.insert(
                     sessionid,
                     tk.END,
                     values=(itemduration, hl.filename, ),
-                    text=hl.status,
+                    text=f'{timetext} - {statustext}',
                     tags=hl.treeview_tags(),
                 )
         # Select last history item.

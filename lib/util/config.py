@@ -56,7 +56,11 @@ SCRIPT = os.path.split(os.path.abspath(sys.argv[0]))[1]
 SCRIPTDIR = os.path.abspath(sys.path[0])
 
 CONFIGFILE = os.path.join(SCRIPTDIR, 'wincnc-history.json')
-
+ICONFILE = os.path.join(
+    SCRIPTDIR,
+    'resources',
+    'wincnc-history.png'
+)
 example_file = os.path.join(SCRIPTDIR, 'example_data/WINCNC.CSV')
 win_file = 'C:/WinCNC/WINCNC.CSV'
 if os.path.exists(example_file):

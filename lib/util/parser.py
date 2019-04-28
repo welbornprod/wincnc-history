@@ -13,6 +13,24 @@ from datetime import (
 from colr import Colr as C
 
 
+def parse_datetime(s):
+    """ Parse a datetime in the form 'm-d-y h:m:s'. """
+    return datetime.strptime(s, '%m-%d-%y %H:%M:%S')
+
+
+def time_str(dt, human=False, time_only=False):
+    """ Use strftime to format a datetime. """
+    timestr = datetime.strftime(dt, '%I:%M:%S%p').lower()
+    if time_only:
+        return timestr
+    if human:
+        fmt = '%a, %b %e'
+    else:
+        fmt = '%m-%d-%y'
+    datestr = datetime.strftime(dt, fmt)
+    return f'{datestr} {timestr}'
+
+
 def timedelta_from_str(durstr):
     """ Convert a string like '01:29' (1 minute and 29 seconds)
         into a datetime.timedelta`.
@@ -76,7 +94,7 @@ class History(UserList):
                     continue
                 elif line.lower().startswith('exiting'):
                     _, timestr, datestr = line.split(', ')
-                    session.end_time = session.parse_datetime(' '.join((
+                    session.end_time = parse_datetime(' '.join((
                         datestr.strip(),
                         timestr.strip(),
                     )))
@@ -107,11 +125,11 @@ class SessionHistory(UserList):
         super().__init__(iterable)
         self.start_time = start_time
         if isinstance(start_time, str):
-            self.start_time = self.parse_datetime(start_time)
+            self.start_time = parse_datetime(start_time)
 
         self.end_time = end_time
         if isinstance(end_time, str):
-            self.end_time = self.parse_datetime(end_time)
+            self.end_time = parse_datetime(end_time)
 
         # Cannot calculate duration on an empty list.
         self.duration_delta = timedelta()
@@ -161,11 +179,6 @@ class SessionHistory(UserList):
         """ Return the status of the last command/file in the history. """
         return self[-1].status if self else '<no commands>'
 
-    @staticmethod
-    def parse_datetime(s):
-        """ Parse a datetime in the form 'm-d-y h:m:s'. """
-        return datetime.strptime(s, '%m-%d-%y %H:%M:%S')
-
     def recalculate_duration(self):
         """ Set `self.duration_delta` and `self.duration` based on current
             HistoryLines.
@@ -202,17 +215,13 @@ class SessionHistory(UserList):
             )
         )
 
-    def time_str(self, dt=None, human=False):
+    def time_str(self, dt=None, human=False, time_only=False):
         """ Return a stringified version of a datetime (self.start_time is
             the default).
         """
         if dt is None:
             dt = self.start_time
-        if human:
-            fmt = '%a, %b %e %I:%M:%S'
-        else:
-            fmt = '%m-%d-%y %I:%M:%S'
-        return datetime.strftime(dt, fmt)
+        return time_str(dt, human=human, time_only=time_only)
 
     def treeview_tags(self):
         """ Return a tuple of Treeview tag names for this SessionHistory. """
@@ -293,52 +302,54 @@ class HistoryLine(object):
             input_c13,
             atc1_t0, atc1_t1, atc1_t2, atc1_t3, atc1_t4, atc1_t5, atc1_t6,
             atc1_t7, atc1_t8, atc1_t9, atc1_t10):
-        self.filename = filename.lower()
-        self.minutes = minutes
-        self.seconds = seconds
-        self.time = time
-        self.date = date
-        self.status = status
-        self.rapid = rapid
-        self.feed = feed
-        self.laser = laser
-        self.axis1 = axis1
-        self.axis2 = axis2
-        self.axis3 = axis3
-        self.axis4 = axis4
-        self.axis5 = axis5
-        self.axis6 = axis6
-        self.output_c1 = output_c1
-        self.output_c2 = output_c2
-        self.output_c3 = output_c3
-        self.input_c1 = input_c1
-        self.input_c2 = input_c2
-        self.input_c3 = input_c3
-        self.input_c4 = input_c4
-        self.input_c5 = input_c5
-        self.input_c6 = input_c6
-        self.input_c7 = input_c7
-        self.input_c8 = input_c8
-        self.input_c9 = input_c9
-        self.input_c10 = input_c10
-        self.input_c11 = input_c11
-        self.input_c12 = input_c12
-        self.input_c13 = input_c13
-        self.atc1_t0 = atc1_t0
-        self.atc1_t1 = atc1_t1
-        self.atc1_t2 = atc1_t2
-        self.atc1_t3 = atc1_t3
-        self.atc1_t4 = atc1_t4
-        self.atc1_t5 = atc1_t5
-        self.atc1_t6 = atc1_t6
-        self.atc1_t7 = atc1_t7
-        self.atc1_t8 = atc1_t8
-        self.atc1_t9 = atc1_t9
-        self.atc1_t10 = atc1_t10
+        self.filename = filename.strip().lower()
+        self.minutes = minutes.strip()
+        self.seconds = seconds.strip()
+        self.time = time.strip()
+        self.date = date.strip()
+        self.status = status.strip()
+        self.rapid = rapid.strip()
+        self.feed = feed.strip()
+        self.laser = laser.strip()
+        self.axis1 = axis1.strip()
+        self.axis2 = axis2.strip()
+        self.axis3 = axis3.strip()
+        self.axis4 = axis4.strip()
+        self.axis5 = axis5.strip()
+        self.axis6 = axis6.strip()
+        self.output_c1 = output_c1.strip()
+        self.output_c2 = output_c2.strip()
+        self.output_c3 = output_c3.strip()
+        self.input_c1 = input_c1.strip()
+        self.input_c2 = input_c2.strip()
+        self.input_c3 = input_c3.strip()
+        self.input_c4 = input_c4.strip()
+        self.input_c5 = input_c5.strip()
+        self.input_c6 = input_c6.strip()
+        self.input_c7 = input_c7.strip()
+        self.input_c8 = input_c8.strip()
+        self.input_c9 = input_c9.strip()
+        self.input_c10 = input_c10.strip()
+        self.input_c11 = input_c11.strip()
+        self.input_c12 = input_c12.strip()
+        self.input_c13 = input_c13.strip()
+        self.atc1_t0 = atc1_t0.strip()
+        self.atc1_t1 = atc1_t1.strip()
+        self.atc1_t2 = atc1_t2.strip()
+        self.atc1_t3 = atc1_t3.strip()
+        self.atc1_t4 = atc1_t4.strip()
+        self.atc1_t5 = atc1_t5.strip()
+        self.atc1_t6 = atc1_t6.strip()
+        self.atc1_t7 = atc1_t7.strip()
+        self.atc1_t8 = atc1_t8.strip()
+        self.atc1_t9 = atc1_t9.strip()
+        self.atc1_t10 = atc1_t10.strip()
 
         # Non-csv-file attributes:
         self.duration_delta = self.calc_duration()
         self.duration = timedelta_str(self.duration_delta)
+        self.end_time = parse_datetime(f'{self.date} {self.time}')
+        self.start_time = self.end_time - self.duration_delta
 
     def __colr__(self):
         return C(' ').join(
@@ -411,6 +422,11 @@ class HistoryLine(object):
         if self.is_error():
             args = self.colors['status_err']
         return C(self.status, **args)
+
+    def time_str(self, dt=None, human=False, time_only=False):
+        if dt is None:
+            dt = self.start_time
+        return time_str(dt, human=human, time_only=time_only)
 
     def treeview_tags(self):
         """ Return a tuple of ttk.Treeview tag names for this HistoryLine.

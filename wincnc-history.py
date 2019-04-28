@@ -25,11 +25,11 @@ from lib.util.parser import History
 USAGESTR = """{versionstr}
     Usage:
         {script} -h | -v
-        {script} [-D] [-g]
+        {script} [-D] [-c]
 
     Options:
+        -c,--console  : Run in console-mode.
         -D,--debug    : Show some debug info while running.
-        -g,--gui      : Run in GUI-mode.
         -h,--help     : Show this help message.
         -v,--version  : Show version.
 """.format(script=SCRIPT, versionstr=VERSIONSTR)
@@ -38,10 +38,10 @@ USAGESTR = """{versionstr}
 def main(argd):
     """ Main entry point, expects docopt arg dict as argd. """
     debugprinter.enable(argd['--debug'])
-    debug('Using file: {}'.format(WINCNC_FILE))
-    if argd['--gui']:
-        return load_gui()
-    return list_history()
+    if argd['--console']:
+        debug('Using file: {}'.format(WINCNC_FILE))
+        return list_history()
+    return load_gui()
 
 
 def list_history():
