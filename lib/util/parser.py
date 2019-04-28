@@ -4,8 +4,8 @@
     -Christopher Welborn 04-25-2019
 """
 import csv
-import datetime
 from collections import UserList
+from datetime import datetime
 
 from colr import Colr as C
 
@@ -57,6 +57,14 @@ class History(UserList):
             sessions.append(session)
         return cls(sessions)
 
+    def get_line(self, hsh):
+        """ Retrieve a HistoryLine from this History by hash. """
+        for session in self:
+            hl = session.get_line(hsh)
+            if hl is not None:
+                return hl
+        raise ValueError(f'No HistoryLine with that hash {hsh}')
+
 
 class SessionHistory(UserList):
     """ A collection of HistoryLines. """
@@ -84,20 +92,43 @@ class SessionHistory(UserList):
             pcs.append(self.time_fmt(self.end_time, time_args={'fore': 'red'}))
         return C('\n').join(pcs)
 
+    def __hash__(self):
+        return hash(self.time_str())
+
+    def get_line(self, hsh):
+        """ Retrieve a HistoryLine from this SessionHistory by hash.
+        """
+        hsh = str(hsh)
+        for line in self:
+            if hsh == str(hash(line)):
+                return line
+        return None
+
+    def has_error(self):
+        """ Returns True if any lines in this session had an error. """
+        return any(hl.is_error() for hl in self)
+
+    def last_status(self):
+        """ Return the status of the last command/file in the history. """
+        return self[-1].status if self else '<no commands>'
+
     @staticmethod
     def parse_datetime(s):
         """ Parse a datetime in the form 'm-d-y h:m:s'. """
-        return datetime.datetime.strptime(s, '%m-%d-%y %H:%M:%S')
+        return datetime.strptime(s, '%m-%d-%y %H:%M:%S')
 
-    @staticmethod
-    def time_fmt(dt, time_args=None, date_args=None):
-        """ Return a color formatted version of a datetime. """
+    def time_fmt(self, dt, time_args=None, date_args=None):
+        """ Return a color formatted version of a datetime (self.start_time
+            by default).
+        """
+        if dt is None:
+            dt = self.start_time
         if not time_args:
             time_args = {'fore': 'blue'}
         if not date_args:
             date_args = time_args
 
-        return datetime.datetime.strftime(
+        return datetime.strftime(
             dt,
             str(
                 C(' ').join(
@@ -107,7 +138,7 @@ class SessionHistory(UserList):
                         C('%y', **time_args),
                     ),
                     C(':').join(
-                        C('%H', **date_args),
+                        C('%I', **date_args),
                         C('%M', **date_args),
                         C('%S', **date_args),
                     ),
@@ -115,10 +146,24 @@ class SessionHistory(UserList):
             )
         )
 
-    @staticmethod
-    def time_str(dt):
-        """ Return a stringified version of a datetime. """
-        return datetime.strftime(dt, '%m-%d-%y %H:%M:%S')
+    def time_str(self, dt=None, human=False):
+        """ Return a stringified version of a datetime (self.start_time is
+            the default).
+        """
+        if dt is None:
+            dt = self.start_time
+        if human:
+            fmt = '%a, %b %e %I:%M:%S'
+        else:
+            fmt = '%m-%d-%y %I:%M:%S'
+        return datetime.strftime(dt, fmt)
+
+    def treeview_tags(self):
+        """ Return a tuple of Treeview tag names for this SessionHistory. """
+        tags = [hash(self), 'session']
+        if self.has_error():
+            tags.append('error')
+        return tuple(tags)
 
 
 class HistoryLine(object):
@@ -192,7 +237,7 @@ class HistoryLine(object):
             input_c13,
             atc1_t0, atc1_t1, atc1_t2, atc1_t3, atc1_t4, atc1_t5, atc1_t6,
             atc1_t7, atc1_t8, atc1_t9, atc1_t10):
-        self.filename = filename
+        self.filename = filename.lower()
         self.minutes = minutes
         self.seconds = seconds
         self.time = time
@@ -241,11 +286,20 @@ class HistoryLine(object):
             self.status_fmt(),
         )
 
-    def __str__(self):
-        return ', '.join(
-            str(getattr(self, s, None))
+    def __repr__(self):
+        attrs = '  {}'.format(',\n  '.join(
+            '{:>9}={!r}'.format(s, str(getattr(self, s, None)))
             for s in self.header
-        )
+        ))
+        return f'{type(self).__name__}(\n{attrs}\n)'
+
+    def command_type(self):
+        """ Return the type of command as a string. """
+        if self.is_user_file():
+            return 'user file'
+        if self.is_command_file():
+            return 'command file'
+        return 'command'
 
     def filename_fmt(self):
         """ Return a colorized version of the filename value. """
@@ -266,9 +320,39 @@ class HistoryLine(object):
             return hl
         raise ValueError(f'No line to parse: {line!r}')
 
+    def is_command(self):
+        return not self.is_file()
+
+    def is_command_file(self):
+        return self.filename.lower().startswith('c:\\wincnc')
+
+    def is_error(self):
+        return 'ok' not in self.status.lower()
+
+    def is_file(self):
+        return self.filename.lower().startswith('c:\\')
+
+    def is_user_file(self):
+        return self.is_file() and (not self.is_command_file())
+
     def status_fmt(self):
         """ Return a colorized version of the status value. """
         args = self.colors['status']
-        if self.status != 'OK':
+        if self.is_error():
             args = self.colors['status_err']
         return C(self.status, **args)
+
+    def treeview_tags(self):
+        """ Return a tuple of ttk.Treeview tag names for this HistoryLine.
+        """
+        tags = [hash(self)]
+        if self.is_error():
+            tags.append('error')
+
+        if self.is_user_file():
+            tags.append('file')
+        elif self.is_command_file():
+            tags.append('file_command')
+        else:
+            tags.append('command')
+        return tuple(tags)

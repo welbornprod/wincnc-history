@@ -1,73 +1,54 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-""" wincnc-history.py
+""" WinCNC-History
     View history from WinCNC, because the actual History dialog in WinCNC is
-    way too small.
+    way too small and doesn't have a lot of features.
     -Christopher Welborn 04-25-2019
 """
 
-import os
 import sys
 
-from colr import (
-    Colr as C,
-    auto_disable as colr_auto_disable,
+from lib.gui.main import load_gui
+from lib.util.config import (
+    C,
+    SCRIPT,
+    VERSIONSTR,
+    WINCNC_FILE,
+    debug,
+    debugprinter,
     docopt,
+    print_err,
 )
-from printdebug import DebugColrPrinter
-
-from lib.parser import History
-
-debugprinter = DebugColrPrinter()
-debugprinter.disable()
-debug = debugprinter.debug
-
-colr_auto_disable()
-
-NAME = 'WinCNC-History'
-VERSION = '0.0.1'
-VERSIONSTR = '{} v. {}'.format(NAME, VERSION)
-SCRIPT = os.path.split(os.path.abspath(sys.argv[0]))[1]
-SCRIPTDIR = os.path.abspath(sys.path[0])
+from lib.util.parser import History
 
 USAGESTR = """{versionstr}
     Usage:
         {script} -h | -v
-        {script} [-D]
+        {script} [-D] [-g]
 
     Options:
         -D,--debug    : Show some debug info while running.
+        -g,--gui      : Run in GUI-mode.
         -h,--help     : Show this help message.
         -v,--version  : Show version.
 """.format(script=SCRIPT, versionstr=VERSIONSTR)
-
-example_file = os.path.join(SCRIPTDIR, 'example_data/WINCNC.CSV')
-win_file = 'C:/WinCNC/WINCNC.CSV'
-if os.path.exists(example_file):
-    WINCNC_FILE = example_file
-elif os.path.exists(win_file):
-    WINCNC_FILE = win_file
-else:
-    print(C('WinCNC.csv file not found!', 'red'), file=sys.stderr)
-    sys.exit(1)
 
 
 def main(argd):
     """ Main entry point, expects docopt arg dict as argd. """
     debugprinter.enable(argd['--debug'])
+    debug('Using file: {}'.format(WINCNC_FILE))
+    if argd['--gui']:
+        return load_gui()
+    return list_history()
 
+
+def list_history():
     history = History.from_file(WINCNC_FILE)
     for session in history:
         print(C(session))
     return 0 if history else 1
-
-
-def print_err(*args, **kwargs):
-    """ A wrapper for print() that uses stderr by default. """
-    if kwargs.get('file', None) is None:
-        kwargs['file'] = sys.stderr
-    print(*args, **kwargs)
 
 
 class InvalidArg(ValueError):
