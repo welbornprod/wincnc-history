@@ -26,3 +26,15 @@ default location, you can create/edit `wincnc-history.json` to contain the
     "wincnc_file": "C:/path/to/wincnc.csv"
 }
 ````
+
+## Dependencies
+
+There are a few PyPi packages needed to run this. They are installable
+with `pip install -r requirements.txt`.
+
+Package: | Description:
+------: | -----
+[colr](https://pypi.org/project/colr) | Used for terminal colors.
+[docopt](https://pypi.org/project/docopt) | Used for command-line argument parsing.
+[easysettings](https://pypi.org/project/easysettings) | Used for JSON-based configuration.
+[printdebug](https://pypi.org/project/printdebug) | Used for debug mode printing/logging.
