@@ -12,6 +12,7 @@ from tkinter import filedialog  # noqa
 from tkinter import messagebox
 from tkinter.font import Font  # noqa
 
+
 from ..util.config import (
     NAME,
     NotSet,
@@ -265,6 +266,82 @@ class WinTkBase(WinBase, tk.Tk):
 class WinToplevelBase(WinBase, tk.Toplevel):
     """ Toplevel() with some helper methods from WinBase. """
     pass
+
+
+class WinToolTipBase(WinToplevelBase):
+    """ A tooltip window. """
+    def __init__(
+            self, master=None, x=None, y=None, delay=1000, destroy_cb=None):
+        if master is None:
+            raise ValueError(f'No master provided, got: {master!r}')
+        super().__init__(master=master)
+
+        self.master = master
+        tooltip_bg = '#F4F4F4'
+        for etype in ('TFrame', 'TLabel'):
+            self.master.style.map(
+                f'ToolTip.{etype}',
+                background=[('active', tooltip_bg), ('!disabled', tooltip_bg)],
+            )
+        # Set the delay for destroying this window when leaving.
+        if isinstance(delay, float):
+            # Using seconds instead of milliseconds.
+            self.delay = delay * 1000
+        else:
+            self.delay = delay
+
+        self.bind('<Enter>', self.event_enter)
+        self.bind('<Leave>', self.event_leave)
+        self.screenheight = self.master.winfo_screenheight()
+        self.screenwidth = self.master.winfo_screenwidth()
+
+        self.destroy_cb = destroy_cb
+        if self.delay is not None:
+            self.cb_ids = [self.after(self.delay, self.destroy)]
+        else:
+            self.cb_ids = []
+
+        self.overrideredirect(True)
+
+    def destroy(self):
+        """ Destroy this tooltip window, without debugging geometry. """
+        if callable(self.destroy_cb):
+            self.destroy_cb()
+        super(tk.Toplevel, self).destroy()
+
+    def event_enter(self, event):
+        """ Cancel any destroy callbacks, the user wants to stay. """
+        for cb_id in self.cb_ids:
+            self.after_cancel(cb_id)
+        self.cb_ids = []
+        self.update_idletasks()
+
+    def event_leave(self, event):
+        """ Schedule destroy when leaving this tooltip.
+            It can be cancelled by re-entering.
+        """
+        self.start_destroy()
+
+    def set_geometry(self, x=None, y=None, width=None, height=None):
+        # Update for accurate measurements.
+        self.update_idletasks()
+        if width is None:
+            width = max(self.winfo_width(), 100)
+        if height is None:
+            height = max(self.winfo_height(), 20)
+
+        if x is None:
+            x = (self.screenwidth - width) // 2
+        else:
+            x = x + 10
+        if y is None:
+            y = (self.screenheight - height) // 2
+        else:
+            y = y - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
+
+    def start_destroy(self):
+        self.cb_ids.append(self.after(self.delay, self.destroy))
 
 
 # Use TkErrorLogger

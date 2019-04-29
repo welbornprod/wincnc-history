@@ -20,6 +20,8 @@ def parse_datetime(s):
 
 def time_str(dt, human=False, time_only=False):
     """ Use strftime to format a datetime. """
+    if dt is None:
+        return ''
     timestr = datetime.strftime(dt, '%I:%M:%S%p').lower()
     if time_only:
         return timestr
@@ -37,6 +39,11 @@ def timedelta_from_str(durstr):
     """
     mins, secs = (int(s) for s in durstr.split(':'))
     return timedelta(minutes=mins, seconds=secs)
+
+
+def timedelta_secs(delta):
+    """ Get total number of seconds from a timedelta. """
+    return (delta.days * 3600) + delta.seconds
 
 
 def timedelta_str(delta, short=False):
@@ -62,7 +69,7 @@ def timedelta_str(delta, short=False):
 
 
 class History(UserList):
-    """ A collection of SessionHistorys. """
+    """ A collection of Sessions. """
     def __bool__(self):
         return bool(self.data)
 
@@ -84,7 +91,7 @@ class History(UserList):
                 if line.lower().startswith('starting'):
                     _, timestr, datestr = line.split(', ')
 
-                    session = SessionHistory(
+                    session = Session(
                         [],
                         start_time=' '.join((
                             datestr.strip(),
@@ -98,31 +105,40 @@ class History(UserList):
                         datestr.strip(),
                         timestr.strip(),
                     )))
-                    session.recalculate_duration()
+                    session.recalculate()
                     sessions.append(session)
                     session = None
                     continue
                 if session is not None:
-                    session.append(HistoryLine.from_line(line))
+                    session.append(Command.from_line(line))
         # Pick up any non-exits.
         if session is not None:
-            session.recalculate_duration()
+            session.recalculate()
             sessions.append(session)
         return cls(sessions)
 
-    def get_line(self, hsh):
-        """ Retrieve a HistoryLine from this History by hash. """
+    def get_command(self, hsh):
+        """ Retrieve a Command from this History by hash. """
         for session in self:
-            hl = session.get_line(hsh)
+            hl = session.get_command(hsh)
             if hl is not None:
                 return hl
-        raise ValueError(f'No HistoryLine with that hash {hsh}')
+        raise ValueError(f'No Command with that hash: {hsh}')
+
+    def get_session(self, hsh):
+        """ Retrieve a Session from this History by hash. """
+        hsh = str(hsh)
+        for session in self:
+            if str(hash(session)) == hsh:
+                return session
+        raise ValueError(f'No Session with that hash: {hsh}')
 
 
-class SessionHistory(UserList):
-    """ A collection of HistoryLines. """
+class Session(UserList):
+    """ A collection of Commands. """
     def __init__(self, iterable, start_time=None, end_time=None):
         super().__init__(iterable)
+
         self.start_time = start_time
         if isinstance(start_time, str):
             self.start_time = parse_datetime(start_time)
@@ -134,7 +150,16 @@ class SessionHistory(UserList):
         # Cannot calculate duration on an empty list.
         self.duration_delta = timedelta()
         self.duration = '0s'
-        self.recalculate_duration()
+
+        self.actual_delta = timedelta()
+        self.actual_duration = '0s'
+        self.avg_delta = timedelta()
+        self.avg_duration = '0s'
+        self.between_delta = timedelta()
+        self.between_duration = '0s'
+        self.avg_between_delta = timedelta()
+        self.avg_between_duration = '0s'
+        self.recalculate()
 
     def __bool__(self):
         return bool(self.data)
@@ -153,38 +178,98 @@ class SessionHistory(UserList):
     def __hash__(self):
         return hash(self.time_str())
 
+    def between_time(self):
+        """ Calculate a timedelta (duration) for all time in between commands.
+        """
+        delta = timedelta()
+        # Skipping the first item on purpose.
+        for i in range(len(self) - 1, 0, -1):
+            cmd = self[i]
+            prevcmd = self[i - 1]
+            delta = delta + (cmd.start_time - prevcmd.end_time)
+        return delta
+
     def calc_duration(self):
         """ Calculate a timedelta (duration) for all lines in this session.
         """
         # sum() does not work for timedeltas.
         delta = timedelta()
-        for line in self:
-            delta = delta + line.duration_delta
+        for cmd in self:
+            delta = delta + cmd.duration_delta
         return delta
 
-    def get_line(self, hsh):
-        """ Retrieve a HistoryLine from this SessionHistory by hash.
+    @property
+    def count(self):
+        return len(self)
+
+    def get_command(self, hsh):
+        """ Retrieve a Command from this Session by hash.
         """
         hsh = str(hsh)
-        for line in self:
-            if hsh == str(hash(line)):
-                return line
+        for cmd in self:
+            if hsh == str(hash(cmd)):
+                return cmd
         return None
 
     def has_error(self):
-        """ Returns True if any lines in this session had an error. """
+        """ Returns True if any cmds in this session had an error. """
         return any(hl.is_error() for hl in self)
 
     def last_status(self):
         """ Return the status of the last command/file in the history. """
         return self[-1].status if self else '<no commands>'
 
+    def recalculate(self):
+        """ Call all recalculate methods. """
+        self.recalculate_duration()
+        self.recalculate_runtime_info()
+
     def recalculate_duration(self):
         """ Set `self.duration_delta` and `self.duration` based on current
-            HistoryLines.
+            Commands.
         """
         self.duration_delta = self.calc_duration()
         self.duration = timedelta_str(self.duration_delta, short=True)
+
+    def recalculate_runtime_info(self):
+        """ Set the average runtime attributes. """
+        for k, v in self.runtime_info().items():
+            setattr(self, k, v)
+
+    def runtime_info(self):
+        """ Build info about the Commands in this Session, like
+            number of commands, average command time, time between commands,
+            etc.
+            Returns a dict of info.
+        """
+        length = len(self)
+        if length:
+            avg_delta = self.duration_delta // length
+        else:
+            avg_delta = timedelta()
+        if self.end_time:
+            actual_delta = self.end_time - self.start_time
+        else:
+            actual_delta = timedelta()
+        between_delta = self.between_time()
+        if between_delta and (length > 1):
+            avg_between_delta = between_delta // (length - 1)
+        else:
+            avg_between_delta = timedelta()
+
+        return {
+            'actual_delta': actual_delta,
+            'actual_duration': timedelta_str(actual_delta, short=True),
+            'avg_delta': avg_delta,
+            'avg_duration': timedelta_str(avg_delta, short=True),
+            'between_delta': between_delta,
+            'between_duration': timedelta_str(between_delta, short=True),
+            'avg_between_delta': avg_between_delta,
+            'avg_between_duration': timedelta_str(
+                avg_between_delta,
+                short=True
+            ),
+        }
 
     def time_fmt(self, dt=None, time_args=None, date_args=None):
         """ Return a color formatted version of a datetime (self.start_time
@@ -224,14 +309,17 @@ class SessionHistory(UserList):
         return time_str(dt, human=human, time_only=time_only)
 
     def treeview_tags(self):
-        """ Return a tuple of Treeview tag names for this SessionHistory. """
+        """ Return a tuple of Treeview tag names for this Session. """
         tags = [hash(self), 'session']
         if self.has_error():
             tags.append('error')
         return tuple(tags)
 
 
-class HistoryLine(object):
+class Command(object):
+    """ Holds information about a single line from WinCNC.csv, a command,
+        file, or file-command.
+    """
     colors = {
         'command': {'fore': 'dimgrey'},
         'command_file': {'fore': 'lightblue'},
@@ -429,7 +517,7 @@ class HistoryLine(object):
         return time_str(dt, human=human, time_only=time_only)
 
     def treeview_tags(self):
-        """ Return a tuple of ttk.Treeview tag names for this HistoryLine.
+        """ Return a tuple of ttk.Treeview tag names for this Command.
         """
         tags = [hash(self)]
         if self.is_error():
