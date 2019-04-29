@@ -61,17 +61,6 @@ ICONFILE = os.path.join(
     'resources',
     'wincnc-history.png'
 )
-example_file = os.path.join(SCRIPTDIR, 'example_data/WINCNC.CSV')
-win_file = 'C:/WinCNC/WINCNC.CSV'
-if os.path.exists(example_file):
-    WINCNC_FILE = example_file
-elif os.path.exists(win_file):
-    WINCNC_FILE = win_file
-else:
-    print(C('WinCNC.csv file not found!', 'red'), file=sys.stderr)
-    sys.exit(1)
-
-
 # Global config settings.
 config = load_json_settings(
     CONFIGFILE,
@@ -79,6 +68,19 @@ config = load_json_settings(
         'theme': 'clam',
     }
 )
+
+example_file = os.path.join(SCRIPTDIR, 'example_data/WINCNC.CSV')
+win_file = 'C:/WinCNC/WINCNC.CSV'
+config_file = config.get('wincnc_file', None)
+if config_file and os.path.exists(config_file):
+    WINCNC_FILE = config_file
+elif os.path.exists(win_file):
+    WINCNC_FILE = win_file
+elif os.path.exists(example_file):
+    WINCNC_FILE = example_file
+else:
+    print(C('WinCNC.csv file not found!', 'red'), file=sys.stderr)
+    sys.exit(1)
 
 
 def debug_obj(o, msg=None, is_error=False, parent=None, level=0):
