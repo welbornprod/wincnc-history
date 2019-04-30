@@ -170,12 +170,19 @@ class Session(UserList):
 
         self.actual_delta = timedelta()
         self.actual_duration = '0s'
+        self.end_of_day_delta = timedelta()
+        self.end_of_day_duration = '0s'
         self.avg_delta = timedelta()
         self.avg_duration = '0s'
         self.between_delta = timedelta()
         self.between_duration = '0s'
         self.avg_between_delta = timedelta()
         self.avg_between_duration = '0s'
+
+        self.count_commands = 0
+        self.count_files = 0
+        self.count_command_files = 0
+
         self.recalculate()
 
     def __bool__(self):
@@ -215,6 +222,12 @@ class Session(UserList):
             delta = delta + cmd.duration_delta
         return delta
 
+    def calc_end_of_day_duration(self):
+        """ Calculate a timedelta for end_time - last_command.end_time. """
+        if not (self and self.end_time):
+            return timedelta()
+        return self.end_time - self[-1].end_time
+
     @property
     def count(self):
         return len(self)
@@ -240,6 +253,20 @@ class Session(UserList):
         """ Call all recalculate methods. """
         self.recalculate_duration()
         self.recalculate_runtime_info()
+        self.recalculate_counts()
+
+    def recalculate_counts(self):
+        """ Calculate the number of command types for this session. """
+        self.count_commands = 0
+        self.count_files = 0
+        self.count_command_files = 0
+        for cmd in self:
+            if cmd.is_command():
+                self.count_commands += 1
+            elif cmd.is_command_file():
+                self.count_command_files += 1
+            elif cmd.is_user_file():
+                self.count_files += 1
 
     def recalculate_duration(self):
         """ Set `self.duration_delta` and `self.duration` based on current
@@ -247,6 +274,11 @@ class Session(UserList):
         """
         self.duration_delta = self.calc_duration()
         self.duration = timedelta_str(self.duration_delta, short=True)
+        self.end_of_day_delta = self.calc_end_of_day_duration()
+        self.end_of_day_duration = timedelta_str(
+            self.end_of_day_delta,
+            short=True,
+        )
 
     def recalculate_runtime_info(self):
         """ Set the average runtime attributes. """
@@ -287,6 +319,32 @@ class Session(UserList):
                 short=True
             ),
         }
+
+    def time_after(self, command):
+        """ Return a timedelta for the time after `command` was ended
+            and another one started.
+        """
+        try:
+            index = self.index(command)
+        except ValueError:
+            raise ValueError(f'Command is not in this session: {command}')
+        if index == len(self) - 1:
+            # No time after.
+            return timedelta()
+        cmdafter = self[index + 1]
+        return cmdafter.start_time - command.end_time
+
+    def time_before(self, command):
+        """ Return a timedelta for the time before `command` was started. """
+        try:
+            index = self.index(command)
+        except ValueError:
+            raise ValueError(f'Command is not in this session: {command}')
+        if index == 0:
+            # No time before.
+            return timedelta()
+        cmdbefore = self[index - 1]
+        return command.start_time - cmdbefore.end_time
 
     def time_fmt(self, dt=None, time_args=None, date_args=None):
         """ Return a color formatted version of a datetime (self.start_time

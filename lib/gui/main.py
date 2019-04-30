@@ -7,11 +7,6 @@
 
 import sys
 
-from .common import (
-    create_event_handler,
-    WinTkBase,
-    WinToolTipBase,
-)
 from ..util.config import (
     AUTHOR,
     ICONFILE,
@@ -25,11 +20,17 @@ from ..util.config import (
     tk,
     ttk,
 )
-
 from ..util.parser import (
     History,
-    time_str,
     timedelta_str,
+)
+from .common import (
+    create_event_handler,
+    WinTkBase,
+)
+from .tooltips import (
+    WinToolTipCommand,
+    WinToolTipSession,
 )
 
 
@@ -45,154 +46,6 @@ def load_gui(filepath=None):
         ))
         return 1
     return 0
-
-
-class WinToolTipCommand(WinToolTipBase):
-    """ A tooltip window for Commands. """
-    def __init__(
-            self, master=None, x=None, y=None, delay=1000, command=None,
-            destroy_cb=None):
-        if master is None:
-            raise ValueError(f'No master provided, got: {master!r}')
-        super().__init__(
-            master=master,
-            x=x,
-            y=y,
-            delay=delay,
-            destroy_cb=destroy_cb,
-        )
-
-        end_time = time_str(command.end_time, time_only=True)
-        self.text = f'End Time: {end_time}'
-        self.frm_main = ttk.Frame(
-            self,
-            relief=tk.GROOVE,
-            borderwidth=1,
-            padding='2 2 2 2',
-            style='ToolTip.TFrame',
-        )
-        self.frm_main.pack(fill=tk.BOTH, expand=True)
-
-        self.lbl = ttk.Label(
-            self.frm_main,
-            text=self.text,
-            anchor=tk.CENTER,
-            justify=tk.CENTER,
-            width=len(self.text) + 1,
-            style='ToolTip.TLabel',
-        )
-        self.lbl.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
-
-        # MUST call this before calling the winfo_* methods!
-        self.update_idletasks()
-        self.set_geometry(
-            x=x,
-            y=y,
-            width=self.frm_main.winfo_reqwidth(),
-            height=self.frm_main.winfo_reqheight(),
-        )
-
-
-class WinToolTipSession(WinToolTipBase):
-    """ A tooltip window for Sessions. """
-    def __init__(
-            self, master=None, x=None, y=None, delay=1000, session=None,
-            destroy_cb=None):
-        if master is None:
-            raise ValueError(f'No master provided, got: {master!r}')
-        super().__init__(
-            master=master,
-            x=x,
-            y=y,
-            delay=delay,
-            destroy_cb=destroy_cb,
-        )
-
-        self.frm_main = ttk.Frame(
-            self,
-            relief=tk.GROOVE,
-            borderwidth=1,
-            padding='2 2 2 2',
-            style='ToolTip.TFrame',
-        )
-        self.frm_main.pack(fill=tk.BOTH, expand=True)
-        times = (
-            ('start_time', 'Start Time:'),
-            ('end_time', 'End Time:'),
-        )
-        time_vals = {
-            attr: time_str(getattr(session, attr), human=True)
-            for attr, _ in times
-        }
-        max_val_key = max(time_vals, key=lambda k: len(str(time_vals[k])))
-        self.max_value_len = len(time_vals[max_val_key])
-        info = (
-
-            ('count', 'Commands:'),
-            ('actual_duration', 'Run Time:'),
-            ('avg_duration', 'Average Run Time:'),
-            ('between_duration', 'Time Between:'),
-            ('avg_between_duration', 'Average Time Between:'),
-        )
-        self.max_label_len = len(max(info, key=lambda t: len(t[1]))[1])
-        info_vals = {
-            attr: getattr(session, attr)
-            for attr, _ in info
-        }
-        for attr, label in times:
-            self._build_item(attr, label, time_vals[attr])
-        for attr, label in info:
-            self._build_item(attr, label, info_vals[attr])
-
-        # MUST call this before calling the winfo_* methods!
-        self.update_idletasks()
-        self.set_geometry(
-            x=x,
-            y=y,
-            width=self.frm_main.winfo_reqwidth(),
-            height=self.frm_main.winfo_reqheight(),
-        )
-
-    def _build_item(self, attr, label, value):
-        frm = ttk.Frame(
-            self.frm_main,
-            padding='2 2 2 2',
-            style='ToolTip.TFrame',
-        )
-        frm.pack(fill=tk.X, expand=True)
-        setattr(self, f'frm_{attr}', frm)
-
-        lblkey = ttk.Label(
-            frm,
-            text=label,
-            width=self.max_label_len,
-            justify=tk.RIGHT,
-            anchor=tk.E,
-            style='ToolTip.TLabel',
-        )
-        lblkey.pack(
-            side=tk.LEFT,
-            fill=tk.X,
-            expand=True,
-            anchor=tk.W,
-        )
-        setattr(self, f'lbl_{attr}_key', lblkey)
-
-        val = str(value)
-        lblval = ttk.Label(
-            frm,
-            text=val,
-            width=self.max_value_len,
-            justify=tk.LEFT,
-            style='ToolTip.TLabel',
-        )
-        lblval.pack(
-            side=tk.RIGHT,
-            fill=tk.X,
-            expand=True,
-            anchor=tk.E,
-        )
-        setattr(self, f'lbl_{attr}_val', lblval)
 
 
 class WinMain(WinTkBase):
@@ -592,7 +445,7 @@ class WinMain(WinTkBase):
             config.save()
         super().destroy()
 
-    def event_tooltip(self, itemid):
+    def event_tooltip(self, itemid, event):
         """ Fires after `self.tooltip_delay` milliseconds when hovering over
             an item in `self.tree_session`.
         """
@@ -601,14 +454,14 @@ class WinMain(WinTkBase):
         hsh = selected['tags'][0]
         if 'session' not in selected['tags']:
             # Single line item.
-            return self.show_tooltip_command(hsh)
+            return self.show_tooltip_command(hsh, itemid, event)
 
-        return self.show_tooltip_session(hsh)
+        return self.show_tooltip_session(hsh, itemid, event)
 
     def event_tree_session_button3(self, event):
         """ Handle r-click. """
         itemid = self.tree_session.identify_row(event.y)
-        self.event_tooltip(itemid)
+        self.event_tooltip(itemid, event)
 
     def event_tree_session_motion(self, event):
         """ Highlights the row underneath the mouse. """
@@ -651,6 +504,24 @@ class WinMain(WinTkBase):
             return
         self.tag_add(itemid, 'focused')
         self.last_focus = itemid
+
+    def get_row_bottom(self, itemid, event):
+        """ Get a Treeview item's bottom position (max y). """
+        previtem = itemid
+        itemy = event.y
+        while previtem == itemid:
+            itemy += 1
+            previtem = self.tree_session.identify_row(itemy)
+        return itemy - 1
+
+    def get_row_top(self, itemid, event):
+        """ Get a Treeview item's top position (min y). """
+        previtem = itemid
+        itemy = event.y
+        while previtem == itemid:
+            itemy -= 1
+            previtem = self.tree_session.identify_row(itemy)
+        return itemy + 1
 
     def refresh(self):
         """ Read the WinCNC file and build the session/command trees. """
@@ -709,7 +580,7 @@ class WinMain(WinTkBase):
             var = getattr(self, name)
             var.set(getattr(hl, name[4:]))
 
-    def show_tooltip_command(self, hsh):
+    def show_tooltip_command(self, hsh, itemid, event):
         if self.win_tooltip is not None:
             return
         try:
@@ -717,17 +588,27 @@ class WinMain(WinTkBase):
         except ValueError:
             # No real item was focused.
             return
+        parentid = self.tree_session.parent(itemid)
+        parenthsh = self.tree_session.item(parentid)['tags'][0]
+        session = self.history.get_session(parenthsh)
+
+        # Ensure the tooltip always draws in the same row-relative place.
+        itemy = self.get_row_top(itemid, event)
+        ydiff = event.y - itemy
+        y = event.y_root - ydiff
+
         self.update_idletasks()
         self.win_tooltip = WinToolTipCommand(
             self,
-            x=self.winfo_pointerx(),
-            y=self.winfo_pointery(),
+            x=event.x_root,
+            y=y,
             delay=self.tooltip_kill_delay,
             command=command,
+            session=session,
             destroy_cb=self.reset_win_tooltip,
         )
 
-    def show_tooltip_session(self, hsh):
+    def show_tooltip_session(self, hsh, itemid, event):
         if self.win_tooltip is not None:
             return
         try:
@@ -735,11 +616,15 @@ class WinMain(WinTkBase):
         except ValueError:
             # No real item was focused.
             return
+        # Ensure the tooltip always draws in the same row-relative place.
+        itemy = self.get_row_top(itemid, event)
+        ydiff = event.y - itemy
+        y = event.y_root - ydiff
         self.update_idletasks()
         self.win_tooltip = WinToolTipSession(
             self,
-            x=self.winfo_pointerx(),
-            y=self.winfo_pointery(),
+            x=event.x_root,
+            y=y,
             delay=self.tooltip_kill_delay,
             session=session,
             destroy_cb=self.reset_win_tooltip,

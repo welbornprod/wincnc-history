@@ -375,11 +375,11 @@ class WinToolTipBase(WinToplevelBase):
         if x is None:
             x = (self.screenwidth - width) // 2
         else:
-            x = x + 10
+            x = x
         if y is None:
             y = (self.screenheight - height) // 2
         else:
-            y = y - (height // 2)
+            y = y
         self.geometry(f'{width}x{height}+{x}+{y}')
 
     def start_destroy(self):
