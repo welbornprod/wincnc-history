@@ -41,11 +41,6 @@ def create_event_handler(func):
             if isinstance(event.widget, widgettype) and (eventkey in keys):
                 debug('Ignoring event for Entry: {!r}'.format(eventkey))
                 return None
-        debug('Handling event: {!r} in {!r}, with: {!r}'.format(
-            eventkey,
-            type(event.widget).__name__,
-            func.__name__,
-        ))
         return func()
 
     return anon_event_handler
@@ -98,8 +93,24 @@ def show_error(msg, parent=None):
         # Fix message boxes.
         win.option_add('*Dialog.msg.font', ('Arial', 10))
         win.withdraw()
-    title = '{} - Error'.format(NAME)
+    title = f'{NAME} - Error'
     messagebox.showerror(title=title, message=str(msg))
+    if win is not None:
+        win.destroy()
+
+
+def show_info(msg, title=None, parent=None):
+    """ Show a tkinter info dialog. """
+    win = None
+    if parent is None:
+        win = tk.Tk()
+        # Fix message boxes.
+        win.option_add('*Dialog.msg.font', ('Arial', 10))
+        win.withdraw()
+
+    utitle = f' - {title}' if title else ''
+    title = f'{NAME}{utitle}'
+    messagebox.showinfo(title=title, message=str(msg))
     if win is not None:
         win.destroy()
 
@@ -113,7 +124,8 @@ def show_question(msg, title=None, parent=None):
         win.option_add('*Dialog.msg.font', ('Arial', 10))
         win.withdraw()
 
-    title = '{} - {}'.format(NAME, title or 'Confirm')
+    utitle = title or 'Confirm'
+    title = f'{NAME} - {utitle}'
     ret = messagebox.askyesno(title=title, message=str(msg))
     if win is not None:
         win.destroy()
@@ -263,6 +275,17 @@ class WinBase(object):
             self.after_idle(self.destroy, False)
         else:
             self.lift()
+
+    def show_info(self, msg, title=None):
+        """ Show a tkinter info dialog, but make sure this window is
+            out of the way.
+        """
+        old_topmost = self.attributes('-topmost')
+        self.attributes('-topmost', 0)
+        self.lower()
+        show_info(msg, title=title)
+        self.attributes('-topmost', old_topmost)
+        self.lift()
 
     def show_question(self, msg, title=None):
         """ Show a tkinter askyesno dialog, but make sure this window is

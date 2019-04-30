@@ -5,13 +5,18 @@
     -Christopher Welborn 04-27-2019
 """
 
+import sys
+
 from .common import (
+    create_event_handler,
     WinTkBase,
     WinToolTipBase,
 )
 from ..util.config import (
+    AUTHOR,
     ICONFILE,
     NAME,
+    SCRIPTDIR,
     VERSION,
     config,
     debug,
@@ -271,6 +276,78 @@ class WinMain(WinTkBase):
             config.get('font_dialog', None) or ('Arial', 10)
         )
 
+        # Hotkey and Menu information for this window, programmatically setup.
+        # They are first sorted by label, and then by 'order' (if available).
+        hotkeys = {
+            'help': {
+                'About': {
+                    'char': 'A',
+                    'func': self.cmd_menu_about,
+                },
+            },
+            'file': {
+                'Refresh': {
+                    'char': 'R',
+                    'func': self.cmd_menu_refresh,
+                    'order': 0,
+                },
+                # Separator under tiger viewer (order: 2).
+                '-': {'order': 1},
+                'Exit': {
+                    'char': 'x',
+                    'func': self.cmd_menu_exit,
+                },
+            },
+        }
+
+        # Build Main menu.
+        self.menu_main = tk.Menu(self)
+        # Build Admin menu.
+        self.menu_file = tk.Menu(self.menu_main, tearoff=0)
+        filesortkey = lambda k: hotkeys['file'][k].get('order', 99)  # noqa
+        for lbl in sorted(sorted(hotkeys['file']), key=filesortkey):
+            if lbl.startswith('-'):
+                self.menu_file.add_separator()
+                continue
+            fileinfo = hotkeys['file'][lbl]
+            self.menu_file.add_command(
+                label=lbl,
+                underline=lbl.index(fileinfo['char']),
+                command=fileinfo['func'],
+                accelerator='Ctrl+{}'.format(fileinfo['char'].upper()),
+            )
+            self.bind_all(
+                '<Control-{}>'.format(fileinfo['char'].lower()),
+                create_event_handler(fileinfo['func'])
+            )
+        self.menu_main.add_cascade(
+            label='File',
+            menu=self.menu_file,
+            underline=0,
+        )
+
+        # Build Help menu.
+        self.menu_help = tk.Menu(self.menu_main, tearoff=0)
+        for lbl, helpinfo in hotkeys['help'].items():
+            self.menu_help.add_command(
+                label=lbl,
+                underline=lbl.index(helpinfo['char']),
+                command=helpinfo['func'],
+                accelerator='Ctrl+{}'.format(helpinfo['char'].upper()),
+            )
+            self.bind_all(
+                '<Control-{}>'.format(helpinfo['char'].lower()),
+                lambda event: helpinfo['func']()
+            )
+
+        self.menu_main.add_cascade(
+            label='Help',
+            menu=self.menu_help,
+            underline=0,
+        )
+        # Set main menu to root window.
+        self.config(menu=self.menu_main)
+
         # Main frame.
         self.frm_main = ttk.Frame(self, padding='2 2 2 2')
         self.frm_main.pack(fill=tk.BOTH, expand=True)
@@ -492,6 +569,23 @@ class WinMain(WinTkBase):
     def clear_treeview(self, treeview):
         treeview.delete(*treeview.get_children())
 
+    def cmd_menu_about(self):
+        filepath = self.filepath.replace(SCRIPTDIR, '..')
+        msg = '\n'.join((
+            f'{NAME} v. {VERSION}',
+            f'{AUTHOR} © 2019\n',
+            'Using file:',
+            f'{filepath}\n',
+            f'Python {sys.version.split()[0]}',
+        ))
+        self.show_info(msg, title='About')
+
+    def cmd_menu_exit(self):
+        self.destroy()
+
+    def cmd_menu_refresh(self):
+        self.refresh()
+
     def destroy(self, save_config=True):
         if save_config:
             config['geometry'] = self.geometry()
@@ -561,10 +655,12 @@ class WinMain(WinTkBase):
     def refresh(self):
         """ Read the WinCNC file and build the session/command trees. """
         self.clear_treeview(self.tree_session)
+        self.last_focus = None
 
+        # Reload from file.
         self.history = History.from_file(self.filepath)
         if not self.history:
-            self.show_error(f'No lines from history file: {self.filepath}')
+            self.show_error(f'No lines from history file:\n{self.filepath}')
             return
 
         for session in self.history:

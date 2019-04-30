@@ -23,6 +23,7 @@ from printdebug import DebugColrPrinter
 
 # Explicitly exported by this module:
 __all__ = (
+    'AUTHOR',
     'C',
     'NAME',
     'NotSet',
@@ -52,6 +53,7 @@ colr_auto_disable()
 NAME = 'WinCNC-History'
 VERSION = '0.0.2'
 VERSIONSTR = '{} v. {}'.format(NAME, VERSION)
+AUTHOR = 'Christopher Welborn'
 SCRIPT = os.path.split(os.path.abspath(sys.argv[0]))[1]
 SCRIPTDIR = os.path.abspath(sys.path[0])
 
