@@ -12,10 +12,27 @@ from datetime import (
 
 from colr import Colr as C
 
+from .config import config
+
+change_hours = config.get('change_hours', 0) or 0
+change_minutes = config.get('change_minutes', 0) or 0
+
 
 def parse_datetime(s):
     """ Parse a datetime in the form 'm-d-y h:m:s'. """
-    return datetime.strptime(s, '%m-%d-%y %H:%M:%S')
+    dt = datetime.strptime(s, '%m-%d-%y %H:%M:%S')
+    if change_hours or change_minutes:
+        dt = dt + timedelta(hours=change_hours, minutes=change_minutes)
+    return dt
+
+
+def parse_int(s):
+    """ Try to parse a string into an integer. """
+    try:
+        val = int(s)
+    except (TypeError, ValueError):
+        raise ValueError(f'Not a number: {s}')
+    return val
 
 
 def time_str(dt, human=False, time_only=False):

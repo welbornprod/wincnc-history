@@ -10,16 +10,19 @@
 import sys
 
 from lib.gui.main import load_gui
+from lib.gui.common import show_error
 from lib.util.config import (
     C,
     SCRIPT,
     VERSIONSTR,
-    WINCNC_FILE,
     debug,
     debugprinter,
     docopt,
+    get_wincnc_file,
     print_err,
 )
+
+
 from lib.util.parser import History
 
 USAGESTR = """{versionstr}
@@ -38,14 +41,20 @@ USAGESTR = """{versionstr}
 def main(argd):
     """ Main entry point, expects docopt arg dict as argd. """
     debugprinter.enable(argd['--debug'])
+    try:
+        wincnc_file = get_wincnc_file()
+    except FileNotFoundError as ex:
+        show_error(ex)
+        return 1
+
     if argd['--console']:
-        debug('Using file: {}'.format(WINCNC_FILE))
-        return list_history()
-    return load_gui()
+        debug('Using file: {}'.format(wincnc_file))
+        return list_history(wincnc_file)
+    return load_gui(filepath=wincnc_file)
 
 
-def list_history():
-    history = History.from_file(WINCNC_FILE)
+def list_history(filepath):
+    history = History.from_file(filepath)
     for session in history:
         print(C(session))
     return 0 if history else 1

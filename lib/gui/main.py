@@ -13,7 +13,6 @@ from ..util.config import (
     ICONFILE,
     NAME,
     VERSION,
-    WINCNC_FILE,
     config,
     debug,
     debug_err,
@@ -29,9 +28,9 @@ from ..util.parser import (
 )
 
 
-def load_gui():
+def load_gui(filepath=None):
     """ Load WinMain and run the event loop. """
-    win = WinMain()  # noqa
+    win = WinMain(filepath=filepath)  # noqa
     try:
         tk.mainloop()
     except Exception as ex:
@@ -196,9 +195,10 @@ class WinMain(WinTkBase):
     default_geometry = '903x418+257+116'
     default_theme = 'clam'
 
-    def __init__(self):
+    def __init__(self, filepath=None):
         super().__init__()
-        self.filepath = config.get('wincnc_file', None) or WINCNC_FILE
+        self.filepath = filepath or config.get('wincnc_file', None)
+
         # History instance set in `self.refresh()`.
         self.history = History()
         # Style for theme.
@@ -427,7 +427,11 @@ class WinMain(WinTkBase):
             '<Motion>',
             self.event_tree_session_motion,
         )
-        self.refresh()
+        if self.filepath is None:
+            self.show_error('No WinCNC.csv file to use.', fatal=True)
+        else:
+            # Load file.
+            self.refresh()
 
     def _build_entry(self, parent, attr, lbltext=None, entrywidth=5):
         """ Build a single Label/Entry pair wrapped in a frame. """
@@ -488,9 +492,10 @@ class WinMain(WinTkBase):
     def clear_treeview(self, treeview):
         treeview.delete(*treeview.get_children())
 
-    def destroy(self):
-        config['geometry'] = self.geometry()
-        config.save()
+    def destroy(self, save_config=True):
+        if save_config:
+            config['geometry'] = self.geometry()
+            config.save()
         super().destroy()
 
     def event_tooltip(self, itemid):

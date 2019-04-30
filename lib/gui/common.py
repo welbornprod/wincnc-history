@@ -90,16 +90,34 @@ def show_done_msg(msg, errors=0):
         messagebox.showinfo(title=title, message=msg)
 
 
-def show_error(msg):
+def show_error(msg, parent=None):
     """ Show a tkinter error dialog. """
+    win = None
+    if parent is None:
+        win = tk.Tk()
+        # Fix message boxes.
+        win.option_add('*Dialog.msg.font', ('Arial', 10))
+        win.withdraw()
     title = '{} - Error'.format(NAME)
     messagebox.showerror(title=title, message=str(msg))
+    if win is not None:
+        win.destroy()
 
 
-def show_question(msg, title=None):
+def show_question(msg, title=None, parent=None):
     """ Show a tkinter askyesno dialog. """
+    win = None
+    if parent is None:
+        win = tk.Tk()
+        # Fix message boxes.
+        win.option_add('*Dialog.msg.font', ('Arial', 10))
+        win.withdraw()
+
     title = '{} - {}'.format(NAME, title or 'Confirm')
-    return messagebox.askyesno(title=title, message=str(msg))
+    ret = messagebox.askyesno(title=title, message=str(msg))
+    if win is not None:
+        win.destroy()
+    return ret
 
 
 def show_warning(msg, title=None):
@@ -232,7 +250,7 @@ class WinBase(object):
             self.withdraw()
         else:
             self.lower()
-        show_error(msg)
+        show_error(msg, parent=self)
         self.attributes('-topmost', old_topmost)
         if fatal:
             debug_err(
@@ -241,7 +259,8 @@ class WinBase(object):
                     msg,
                 )
             )
-            self.after_idle(self.destroy)
+            # Tell window to destroy itself without saving config.
+            self.after_idle(self.destroy, False)
         else:
             self.lift()
 
@@ -252,7 +271,7 @@ class WinBase(object):
         old_topmost = self.attributes('-topmost')
         self.attributes('-topmost', 0)
         self.lower()
-        ans = show_question(msg, title=title)
+        ans = show_question(msg, title=title, parent=self)
         self.attributes('-topmost', old_topmost)
         self.lift()
         return ans

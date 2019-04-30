@@ -69,19 +69,6 @@ config = load_json_settings(
     }
 )
 
-example_file = os.path.join(SCRIPTDIR, 'example_data/WINCNC.CSV')
-win_file = 'C:/WinCNC/WINCNC.CSV'
-config_file = config.get('wincnc_file', None)
-if config_file and os.path.exists(config_file):
-    WINCNC_FILE = config_file
-elif os.path.exists(win_file):
-    WINCNC_FILE = win_file
-elif os.path.exists(example_file):
-    WINCNC_FILE = example_file
-else:
-    print(C('WinCNC.csv file not found!', 'red'), file=sys.stderr)
-    sys.exit(1)
-
 
 def debug_obj(o, msg=None, is_error=False, parent=None, level=0):
     """ Pretty print an object, using JSON. """
@@ -116,6 +103,37 @@ def debug_obj(o, msg=None, is_error=False, parent=None, level=0):
             level=level + 1,
             align=(i > 0) or alignfirst,
         )
+
+
+def get_wincnc_file():
+    paths = [
+        config.get('wincnc_file', None),
+        'C:/WinCNC/WINCNC.CSV',
+        os.path.join(SCRIPTDIR, 'example_data/WINCNC.CSV'),
+    ]
+    for filepath in paths:
+        if filepath and os.path.exists(filepath):
+            return filepath
+
+    # Not found, build a decent error message.
+    if paths[0] is None:
+        paths.pop(0)
+        paths.append('\n`wincnc_file` was not set in config.')
+    else:
+        configpath = paths[0]
+        paths.pop(0)
+        paths.append(f'\nFile set in config was not found:\n  {configpath}')
+
+    trypaths = '\n  '.join(
+        s.replace(SCRIPTDIR, '..')
+        for s in paths
+    )
+    msg = '\n'.join((
+        'Cannot find WinCNC.csv file.',
+        'Tried to look in:',
+        f'  {trypaths}',
+    ))
+    raise FileNotFoundError(msg)
 
 
 def print_err(*args, **kwargs):
