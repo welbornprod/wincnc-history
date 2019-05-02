@@ -14,8 +14,9 @@ from colr import Colr as C
 
 from .config import config
 
-change_hours = config.get('change_hours', 0) or 0
-change_minutes = config.get('change_minutes', 0) or 0
+
+change_hours = int(config.get('change_hours', 0) or 0)
+change_minutes = int(config.get('change_minutes', 0) or 0)
 
 
 def parse_datetime(s):

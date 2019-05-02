@@ -7,6 +7,8 @@
 
 import json
 import os
+import platform
+import re
 import sys
 import tkinter as tk
 from tkinter import ttk
@@ -20,6 +22,7 @@ from colr import (
 from easysettings import load_json_settings
 from printdebug import DebugColrPrinter
 
+from ..gui.dialogs import show_error
 
 # Explicitly exported by this module:
 __all__ = (
@@ -51,7 +54,7 @@ debug_exc = debugprinter.debug_exc
 colr_auto_disable()
 
 NAME = 'WinCNC-History'
-VERSION = '0.0.3'
+VERSION = '0.0.4'
 VERSIONSTR = '{} v. {}'.format(NAME, VERSION)
 AUTHOR = 'Christopher Welborn'
 SCRIPT = os.path.split(os.path.abspath(sys.argv[0]))[1]
@@ -63,13 +66,118 @@ ICONFILE = os.path.join(
     'resources',
     'wincnc-history.png'
 )
+
+OS = platform.system().lower()
+
 # Global config settings.
-config = load_json_settings(
-    CONFIGFILE,
-    default={
-        'theme': 'clam',
-    }
-)
+config_defaults = {
+    'change_hours': 0,
+    'theme': 'winnative' if OS == 'windows' else 'clam',
+    'geometry': '1111x612+110+22',
+    'bg_entry': '#F4F4F4',
+    'bg_focus': '#DEDEDE',
+    'bg_treeview': '#F4F4F4',
+    'fg_command': '#002050',
+    'fg_error': '#5B0000',
+    'fg_file': '#004C13',
+    'fg_file_command': '#0C4A46',
+    'fg_label': '#4C4C4C',
+    'fg_session': '#002050',
+    'font_dialog': ['Arial', 10],
+    'font_entry': ['Consolas', 9] if OS == 'windows' else ['Monospace', 9],
+    'font_treeview': ['Consolas', 9] if OS == 'windows' else ['Monospace', 9],
+    'font_treeview_heading': ['Arial', 12],
+}
+config_keys = set(config_defaults)
+config_keys.add('wincnc_file')
+
+try:
+    config = load_json_settings(
+        CONFIGFILE,
+        default=config_defaults,
+    )
+except json.decoder.JSONDecodeError as ex:
+    show_error('\n'.join((
+        f'Can\'t decode config file.',
+        '\nMessage:',
+        f'  {ex}',
+    )))
+    sys.exit(1)
+
+
+def bad_config_type(k):
+    """ Generate an error message if config[k] is the wrong type. """
+    v = config[k]
+    vtype = type(v).__name__
+
+    if v in (None, ''):
+        return f'Empty or null values are not allowed.'
+
+    # Special case for wincnc_file.
+    if k == 'wincnc_file':
+        if not isinstance(v, str):
+            return f'Expecting a filepath (str), Got: ({vtype}) {v!r}.'
+        if not os.path.exists(v):
+            return f'File path in config was not found: {v}'
+        return None
+
+    expected = type(config_defaults[k])
+    if not isinstance(v, expected):
+        return f'Expecting {expected.__name__}, Got: ({vtype}) {v!r}.'
+
+    if k == 'geometry':
+        if re.match(r'\d{1,5}x\d{1,5}\+\d{1,5}\+\d{1,5}', v) is None:
+            example = '[width]x[height]+[x_pos]+[y_pos]'
+            return '\n'.join((
+                f'Expected tkinter size/position:',
+                '  {example},',
+                '\nGot: {v!r}.',
+            ))
+
+    if k.startswith('font_'):
+        ln = len(v)
+        if (ln not in (1, 2, 3)):
+            # Ensure fonts have the right length.
+            return f'Expecting 1-3 items [name, size, weight], Got: {ln}.'
+        # Ensure fonts have the right types.
+        example = '\n'.join((
+            '  [(str) name],',
+            '  [(str) name, (int) size],',
+            '  [(str) name, (int) size, (str) weight],',
+        ))
+        got = '[{}]'.format(
+            ', '.join(
+                f'({type(x).__name__}) {x!r}'
+                for x in v
+            )
+        )
+        valid = ([str], [str, int], [str, int, str])
+        if list(type(x) for x in v) not in valid:
+            return f'Expected\n{example}\n\nGot: {got}.'
+
+    if k.startswith('fg_') or k.startswith('bg_'):
+        if re.match('#[0-9A-F]{6}', v) is None:
+            example = '#000000-#FFFFFF'
+            return f'Expected hex color (str) {example!r},\nGot: {v!r}.'
+
+    return None
+
+
+# Check config types against default config values.
+for k, v in config.items():
+    # Ensure config keys are not misspelled.
+    if k not in config_keys:
+        show_error(f'Not a valid config key: {k!r} (value: {v!r})')
+        sys.exit(1)
+
+    # Ensure config values are always the right type.
+    badmsg = bad_config_type(k)
+    if badmsg:
+        show_error('\n'.join((
+            f'Bad config value for: {k!r}',
+            badmsg,
+        )))
+        sys.exit(1)
 
 
 def debug_obj(o, msg=None, is_error=False, parent=None, level=0):

@@ -10,7 +10,7 @@
 import sys
 
 from lib.gui.main import load_gui
-from lib.gui.common import show_error
+from lib.gui.dialogs import show_error
 from lib.util.config import (
     C,
     SCRIPT,
@@ -21,9 +21,8 @@ from lib.util.config import (
     get_wincnc_file,
     print_err,
 )
-
-
 from lib.util.parser import History
+
 
 USAGESTR = """{versionstr}
     Usage:

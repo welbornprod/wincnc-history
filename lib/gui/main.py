@@ -14,7 +14,6 @@ from ..util.config import (
     SCRIPTDIR,
     VERSION,
     config,
-    debug,
     debug_err,
     print_err,
     tk,
@@ -50,8 +49,6 @@ def load_gui(filepath=None):
 
 class WinMain(WinTkBase):
     """ Main window for WinCNC History. """
-    default_geometry = '903x418+257+116'
-    default_theme = 'clam'
 
     def __init__(self, filepath=None):
         super().__init__()
@@ -81,52 +78,51 @@ class WinMain(WinTkBase):
             self.main_icon = None
         # knownstyles = ('clam', 'alt', 'default', 'classic')
         self.known_themes = sorted(self.style.theme_names())
-        usetheme = (
-            config.get('theme', self.default_theme) or self.default_theme
-        ).lower()
+        usetheme = config['theme'].lower()
         if usetheme not in self.known_themes:
-            debug_err(f'Invalid theme name: {usetheme}')
-            debug_err(f'Using {self.default_theme!r}')
             themes = ', '.join(self.known_themes)
-            debug(f'Known themes: {themes}')
-            usetheme = self.default_theme
+            self.show_error(
+                '\n'.join((
+                    f'Invalid theme: {usetheme!r}',
+                    f'\nExpected one of:\n{themes}'
+                )),
+                fatal=True,
+            )
+
         self.theme = usetheme
         self.style.theme_use(self.theme)
         # Entry font is set in `_build_entry()`.
         self.style.configure(
             'TEntry',
-            background=config.get('bg_entry', None) or '#F4F4F4',
+            background=config['bg_entry'],
         )
         self.style.configure(
             'TLabel',
-            foreground=config.get('fg_label', None) or '#4C4C4C',
+            foreground=config['fg_label'],
         )
         self.style.configure(
             'TLabelframe.Label',
-            foreground=config.get('fg_label', None) or '#4C4C4C',
+            foreground=config['fg_label'],
         )
         self.style.configure(
             'Treeview',
-            background=config.get('bg_treeview', None) or '#F4F4F4',
-            font=config.get('font_treeview', None) or ('Monospace', 9),
+            background=config['bg_treeview'],
+            font=config['font_treeview'],
             indent=10
         )
         self.style.configure(
             'Treeview.Heading',
-            foreground=config.get('fg_label', None) or '#4C4C4C',
-            font=config.get('font_treeview_heading', None) or ('Arial', 12),
+            foreground=config['fg_label'],
+            font=config['font_treeview_heading'],
         )
         # Title
         self.title(f'{NAME} ({VERSION})')
         # Size
-        self.geometry(
-            config.get('geometry', None) or
-            self.default_geometry
-        )
+        self.geometry(config['geometry'])
         # Fix message boxes.
         self.option_add(
             '*Dialog.msg.font',
-            config.get('font_dialog', None) or ('Arial', 10)
+            config['font_dialog'],
         )
 
         # Hotkey and Menu information for this window, programmatically setup.
@@ -250,27 +246,27 @@ class WinMain(WinTkBase):
         # Session tags
         self.tree_session.tag_configure(
             'error',
-            foreground=config.get('fg_error', None) or '#5B0000'
+            foreground=config['fg_error'],
         )
         self.tree_session.tag_configure(
             'session',
-            foreground=config.get('fg_session', None) or '#002050'
+            foreground=config['fg_session'],
         )
         self.tree_session.tag_configure(
             'command',
-            foreground=config.get('fg_command', None) or '#002050'
+            foreground=config['fg_command'],
         )
         self.tree_session.tag_configure(
             'file',
-            foreground=config.get('fg_file', None) or '#004C13'
+            foreground=config['fg_file'],
         )
         self.tree_session.tag_configure(
             'file_command',
-            foreground=config.get('fg_file_command', None) or '#0C4A46'
+            foreground=config['fg_file_command'],
         )
         self.tree_session.tag_configure(
             'focused',
-            background=config.get('bg_focus', None) or '#DEDEDE'
+            background=config['bg_focus'],
         )
 
         # Heading 0 should not stretch.
@@ -386,7 +382,7 @@ class WinMain(WinTkBase):
             state='readonly',
             textvariable=var,
             style='TEntry',
-            font=config.get('font_entry', None) or ('Monospace', 9),
+            font=config['font_entry'],
         )
         setattr(self, entryname, entry)
         entry.pack(side=tk.RIGHT, anchor=tk.E, expand=False)
