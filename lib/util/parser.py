@@ -36,6 +36,21 @@ def parse_int(s):
     return val
 
 
+def parse_time(s):
+    """ Parse a datetime in the form 'h:m:s'. """
+    if s.count(':') == 2:
+        return datetime.strptime('%H:%M')
+    return datetime.strptime(s, '%H:%M:%S')
+
+
+def parse_timedelta(durstr):
+    """ Convert a string like '01:29' (1 minute and 29 seconds)
+        into a `datetime.timedelta`.
+    """
+    mins, secs = (int(s) for s in durstr.split(':'))
+    return timedelta(minutes=mins, seconds=secs)
+
+
 def time_str(dt, human=False, time_only=False):
     """ Use strftime to format a datetime. """
     if dt is None:
@@ -49,14 +64,6 @@ def time_str(dt, human=False, time_only=False):
         fmt = '%m-%d-%y'
     datestr = datetime.strftime(dt, fmt)
     return f'{datestr} {timestr}'
-
-
-def timedelta_from_str(durstr):
-    """ Convert a string like '01:29' (1 minute and 29 seconds)
-        into a datetime.timedelta`.
-    """
-    mins, secs = (int(s) for s in durstr.split(':'))
-    return timedelta(minutes=mins, seconds=secs)
 
 
 def timedelta_secs(delta):
@@ -225,9 +232,9 @@ class Session(UserList):
 
     def calc_end_of_day_duration(self):
         """ Calculate a timedelta for end_time - last_command.end_time. """
-        if not (self and self.end_time):
-            return timedelta()
-        return self.end_time - self[-1].end_time
+        if self and self.end_time:
+            return self.end_time - self[-1].end_time
+        return timedelta()
 
     @property
     def count(self):
@@ -330,7 +337,10 @@ class Session(UserList):
         except ValueError:
             raise ValueError(f'Command is not in this session: {command}')
         if index == len(self) - 1:
-            # No time after.
+            # No command after, try session end_time.
+            if self.end_time:
+                return self.end_time - command.end_time
+            # No end_time to use.
             return timedelta()
         cmdafter = self[index + 1]
         return cmdafter.start_time - command.end_time
@@ -342,8 +352,8 @@ class Session(UserList):
         except ValueError:
             raise ValueError(f'Command is not in this session: {command}')
         if index == 0:
-            # No time before.
-            return timedelta()
+            # No command before, use session start_time.
+            return command.start_time - self.start_time
         cmdbefore = self[index - 1]
         return command.start_time - cmdbefore.end_time
 
@@ -533,9 +543,9 @@ class Command(object):
             command/file.
         """
         return (
-            timedelta_from_str(self.rapid) +
-            timedelta_from_str(self.feed) +
-            timedelta_from_str(self.laser)
+            parse_timedelta(self.rapid) +
+            parse_timedelta(self.feed) +
+            parse_timedelta(self.laser)
         )
 
     def command_type(self):
