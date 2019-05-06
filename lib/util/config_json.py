@@ -13,6 +13,7 @@ import sys
 from datetime import datetime
 
 from easysettings import (
+    __version__ as easysettings_version,
     JSONSettings,
     load_json_settings,
 )
@@ -20,6 +21,16 @@ from easysettings import (
 from ..gui.dialogs import (
     show_error,
 )
+
+es_ver_pcs = easysettings_version.split('.')
+es_ver_major = int(es_ver_pcs[0])
+if es_ver_major < 3:
+    show_error('\n'.join((
+        'Need EasySettings >= 3.0.0.',
+        f'Got EasySettings v. {easysettings_version}',
+        '\nPlease upgrade easysettings with `pip`.',
+    )))
+    sys.exit(1)
 
 OS = platform.system().lower()
 
@@ -162,6 +173,7 @@ def parse_break_time(s):
 
 class WinCNCSettings(JSONSettings):
     def load_hook(self, data):
+        """ Modify/check certain items during config load. """
         # Check config types against default config values.
         for k, v in data.items():
             # Ensure config keys are not misspelled.
@@ -186,7 +198,17 @@ class WinCNCSettings(JSONSettings):
                     data[k] = (None, None)
         return data
 
+    def save_hook(self, data):
+        """ Modify config before saving. """
+        try:
+            # Don't save versions to disk.
+            data.pop('versions')
+        except KeyError:
+            pass
+        return super().save_hook(data)
+
     def save_item_hook(self, key, value):
+        """ Modify certain items before saving. """
         if not key.startswith('break_'):
             return key, value
 
@@ -194,7 +216,10 @@ class WinCNCSettings(JSONSettings):
         if not all(value):
             return key, None
 
-        return key, '-'.join((
-            datetime.strftime(value[0], '%H:%M'),
-            datetime.strftime(value[1], '%H:%M'),
-        ))
+        return (
+            key,
+            '-'.join((
+                datetime.strftime(value[0], '%H:%M'),
+                datetime.strftime(value[1], '%H:%M'),
+            ))
+        )

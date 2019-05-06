@@ -12,13 +12,15 @@ import sys
 from lib.gui.main import load_gui
 from lib.gui.dialogs import show_error
 from lib.util.config import (
-    C,
     SCRIPT,
     VERSIONSTR,
-    debug,
-    debugprinter,
     docopt,
     get_wincnc_file,
+)
+from lib.util.debug import (
+    C,
+    debug,
+    debugprinter,
     print_err,
 )
 from lib.util.parser import History

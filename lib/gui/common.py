@@ -17,6 +17,8 @@ from .dialogs import (
 )
 from ..util.config import (
     NotSet,
+)
+from ..util.debug import (
     debug,
     debugprinter,
     debug_err,

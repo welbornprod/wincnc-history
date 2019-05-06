@@ -5,8 +5,6 @@
     -Christopher Welborn 04-27-2019
 """
 
-import sys
-
 from ..util.config import (
     AUTHOR,
     ICONFILE,
@@ -14,16 +12,18 @@ from ..util.config import (
     SCRIPTDIR,
     VERSION,
     config,
+)
+from ..util.debug import (
     debug_err,
     print_err,
-    tk,
-    ttk,
 )
 from ..util.parser import (
     History,
     timedelta_str,
 )
 from .common import (
+    tk,
+    ttk,
     create_event_handler,
     WinTkBase,
 )
@@ -420,12 +420,17 @@ class WinMain(WinTkBase):
 
     def cmd_menu_about(self):
         filepath = self.filepath.replace(SCRIPTDIR, '..')
+        versions = '\n'.join(
+            f'{k} v. {config["versions"][k]}'
+            for k in sorted(config['versions'])
+        )
+
         msg = '\n'.join((
             f'{NAME} v. {VERSION}',
             f'{AUTHOR} © 2019\n',
             'Using file:',
             f'{filepath}\n',
-            f'Python {sys.version.split()[0]}',
+            versions,
         ))
         self.show_info(msg, title='About')
 
