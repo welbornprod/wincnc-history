@@ -114,6 +114,12 @@ class History(UserList):
                     # Skip headers.
                     continue
                 if line.lower().startswith('starting'):
+                    if session is not None:
+                        # Starting a session without "exiting" the previous one.
+                        session.recalculate()
+                        sessions.append(session)
+                        session = None
+
                     _, timestr, datestr = line.split(', ')
 
                     session = Session(

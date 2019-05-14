@@ -209,12 +209,20 @@ class WinMain(WinTkBase):
         # Build sessions frame
         self.frm_session = ttk.Frame(self.frm_top, padding='0 0 0 10')
         self.frm_session.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.scroll_session = ttk.Scrollbar(
+            self.frm_session,
+            orient='vertical',
+        )
+        self.scroll_session.pack(side=tk.RIGHT, fill=tk.Y, expand=False)
+
         self.tree_session = ttk.Treeview(
             self.frm_session,
             selectmode='browse',
             height=tree_height,
+            yscrollcommand=self.scroll_session.set,
         )
         self.tree_session.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.scroll_session.configure(command=self.tree_session.yview)
         self.tree_session.configure(
             columns=('duration', 'command'),
             show='tree headings',
@@ -234,15 +242,6 @@ class WinMain(WinTkBase):
             anchor=tk.CENTER,
             text='Command:',
         )
-        self.scroll_session = ttk.Scrollbar(
-            self.frm_session,
-            orient='vertical',
-            command=self.tree_session.yview,
-        )
-        self.tree_session.configure(
-            yscrollcommand=self.scroll_session.set
-        )
-        self.scroll_session.pack(side=tk.RIGHT, fill=tk.Y, expand=False)
         # Session tags
         self.tree_session.tag_configure(
             'error',
