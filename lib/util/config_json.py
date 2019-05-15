@@ -22,6 +22,8 @@ from ..gui.dialogs import (
     show_error,
 )
 
+from .debug import debug_err
+
 es_ver_pcs = easysettings_version.split('.')
 es_ver_major = int(es_ver_pcs[0])
 if es_ver_major < 3:
@@ -213,9 +215,20 @@ class WinCNCSettings(JSONSettings):
             return key, value
 
         # Fix break times in config.
-        if not all(value):
+        if not value:
             return key, None
-
+        try:
+            if not all(value):
+                # (None, None) ...break times not set.
+                return key, None
+        except TypeError as ex:
+            # Not an iterable object.
+            typ = type(value).__name__
+            debug_err('\n'.join((
+                f'Expecting (datetime, datetime), got: ({typ}) {value!r}',
+                f'{ex}'
+            )))
+            return key, None
         return (
             key,
             '-'.join((

@@ -38,7 +38,7 @@ __all__ = (
 )
 
 NAME = 'WinCNC-History'
-VERSION = '0.0.6'
+VERSION = '0.0.7'
 VERSIONSTR = '{} v. {}'.format(NAME, VERSION)
 AUTHOR = 'Christopher Welborn'
 SCRIPT = os.path.split(os.path.abspath(sys.argv[0]))[1]
